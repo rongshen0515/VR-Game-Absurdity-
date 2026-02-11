@@ -1,7 +1,5 @@
 using UdonSharp;
 using UnityEngine;
-using VRC.SDKBase;
-using VRC.Udon;
 
 public class WiringPuzzleManager : UdonSharpBehaviour
 {
@@ -10,6 +8,8 @@ public class WiringPuzzleManager : UdonSharpBehaviour
     public GameObject wiringCanvas;
     public GameObject objectToDisappear;
 
+    public CubeRotator cubeRotator; 
+	
     public void CheckCompletion()
     {
         foreach (WireStart wire in wires)
@@ -29,9 +29,10 @@ public class WiringPuzzleManager : UdonSharpBehaviour
         {
             objectToDisappear.SetActive(false);
         }
+
+        if (cubeRotator != null)
+        {
+            cubeRotator.StartRotation();
+        }
     }
 }
-
-// Checking if puzzle solved
-// Closing UI
-// Making another object disappear after puzzle solved (for key)
