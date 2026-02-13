@@ -5,46 +5,25 @@ using VRC.Udon;
 
 public class SphereButton : UdonSharpBehaviour
 {
-    [Header("Drag your cuboid here")]
-    public Transform cuboid;
+    [Header("UI root object to show/hide")]
+    public GameObject wiringCanvas;
 
-    [Header("Rotation")]
-    public Vector3 axis = Vector3.up;     // (0,1,0) rotates around Y
-    public float degreesPerSecond = 90f;
+    [Header("Optional: lock reopening after solved")]
+    public bool lockAfterSolved = true;
 
-    [Header("Button behavior")]
-    public bool toggle = true;            // true = press once to start, press again to stop
-    public float rotateSeconds = 1.0f;    // used only if toggle = false
-
-    private bool rotating = false;
-    private float stopTime = 0f;
+    [HideInInspector] public bool puzzleSolved = false;
 
     public override void Interact()
     {
-        if (cuboid == null) return;
+        if (wiringCanvas == null) return;
+        if (lockAfterSolved && puzzleSolved) return;
 
-        if (toggle)
-        {
-            rotating = !rotating;
-        }
-        else
-        {
-            rotating = true;
-            stopTime = Time.time + rotateSeconds;
-        }
+        wiringCanvas.SetActive(true);
     }
 
-    private void Update()
+    // Puzzle manager can call this when solved
+    public void MarkSolved()
     {
-        if (!rotating || cuboid == null) return;
-
-        // rotate in world space
-        cuboid.Rotate(axis.normalized * degreesPerSecond * Time.deltaTime, Space.World);
-
-        // if momentary mode, stop after time
-        if (!toggle && Time.time >= stopTime)
-        {
-            rotating = false;
-        }
+        puzzleSolved = true;
     }
 }

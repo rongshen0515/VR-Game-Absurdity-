@@ -1,31 +1,52 @@
 using UdonSharp;
 using UnityEngine;
 using VRC.SDKBase;
+using VRC.Udon;
 
-public class CubeRotator : UdonSharpBehaviour
+public class RotateOnSolved : UdonSharpBehaviour
 {
-    [Header("Rotation Settings")]
-    public Vector3 rotationAxis = Vector3.up;
+    [Header("Cuboid to rotate")]
+    public Transform cuboid;
+
+    [Header("Rotate around this axis (local axis)")]
+    public Vector3 localAxis = Vector3.up;
+
+    [Header("Degrees to rotate when triggered")]
+    public float degreesToRotate = 180f;
+
+    [Header("Rotation speed")]
     public float degreesPerSecond = 90f;
 
-    [UdonSynced] private bool _rotating;
+    private bool rotating = false;
+    private Quaternion startRot;
+    private Quaternion targetRot;
 
-    public void StartRotation()
+    public void StartRotating()
     {
-        _rotating = true;
-        RequestSerialization();
-    }
+        if (cuboid == null) return;
+        if (rotating) return;
 
-    public void StopRotation()
-    {
-        _rotating = false;
-        RequestSerialization();
+        rotating = true;
+
+        // Save start and compute target rotation
+        startRot = cuboid.localRotation;
+        targetRot = startRot * Quaternion.AngleAxis(degreesToRotate, localAxis.normalized);
     }
 
     private void Update()
     {
-        if (!_rotating) return;
+        if (!rotating || cuboid == null) return;
 
-        transform.Rotate(rotationAxis.normalized, degreesPerSecond * Time.deltaTime, Space.Self);
+        float step = degreesPerSecond * Time.deltaTime;
+
+        // Move toward the target rotation
+        cuboid.localRotation = Quaternion.RotateTowards(cuboid.localRotation, targetRot, step);
+
+        // Stop when we reach it
+        if (Quaternion.Angle(cuboid.localRotation, targetRot) <= 0.01f)
+        {
+            cuboid.localRotation = targetRot;
+            rotating = false;
+        }
     }
 }
