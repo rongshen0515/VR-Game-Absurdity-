@@ -1,0 +1,56 @@
+What You’ll Need in Unity
+Scene Objects
+
+MemoryGameManager (Empty GameObject)
+
+TabletScreen (Cube/Quad with material)
+
+4 Button Objects:
+
+Button_Red
+
+Button_Green
+
+Button_Blue
+
+Button_Yellow
+
+Each button should have:
+
+Collider
+
+UdonBehaviour (UdonSharp script)
+
+Color Index Setup
+Color	Index
+Red	    0
+Green	1
+Blue	2
+Yellow	3
+
+Make sure:
+
+Each button has correct index
+
+All buttons reference the same MemoryGameManager
+
+⚙️ Unity Setup Checklist
+MemoryGameManager
+
+Assign tablet renderer
+
+Assign materials for each color
+
+Assign default material
+
+Buttons
+
+Add Collider
+
+Add UdonBehaviour (MemoryButton)
+
+Assign:
+
+GameManager
+
+Correct color index
