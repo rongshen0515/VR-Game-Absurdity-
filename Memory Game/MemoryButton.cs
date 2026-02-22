@@ -1,17 +1,19 @@
 using UdonSharp;
 using UnityEngine;
-using VRC.SDKBase;
 using VRC.Udon;
 
 public class MemoryButton : UdonSharpBehaviour
 {
-    public MemoryGameManager gameManager;
+    public MemoryGameController controller;
 
-    [Tooltip("0=Red, 1=Green, 2=Blue, 3=Yellow")]
+    [Tooltip("0=Red, 1=Green, 2=Yellow, 3=Blue")]
     public int colorIndex;
 
     public override void Interact()
     {
-        gameManager.PlayerInput(colorIndex);
+        if (controller != null)
+        {
+            controller.PressColor(colorIndex);
+        }
     }
 }
