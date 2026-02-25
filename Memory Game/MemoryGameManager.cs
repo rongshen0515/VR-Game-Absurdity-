@@ -3,7 +3,9 @@ using UnityEngine;
 using VRC.SDKBase;
 using VRC.Udon;
 
-public class MemoryGameController : UdonSharpBehaviour
+// In the project the asset is named "Tablet" but you can rename the class and file as needed. Just make sure the class name matches the file name for UdonSharp to compile it correctly.
+
+public class Tablet : UdonSharpBehaviour
 {
     [Header("Game Settings")]
     public int totalRounds = 3;
@@ -28,6 +30,12 @@ public class MemoryGameController : UdonSharpBehaviour
     public AudioClip failClip;
     public AudioClip roundStartClip;
 
+    [Header("Tablet Glow (Round Success)")]
+    public Renderer tabletGlowRenderer;   // assign the tablet body renderer
+    public Color tabletNormalColor = Color.white;
+    public Color tabletGlowColor = Color.cyan;
+    public float roundSuccessGlowDuration = 0.4f;
+
     // Internal state
     private int[] sequence;
     private int currentRound = 1;
@@ -50,11 +58,32 @@ public class MemoryGameController : UdonSharpBehaviour
 
     void Start()
     {
+        TLog("Start() called");
+
+        TLog("buttonRenderers null? " + (buttonRenderers == null));
+        TLog("normalColors null? " + (normalColors == null));
+        TLog("litColors null? " + (litColors == null));
+
+        if (buttonRenderers != null) TLog("buttonRenderers length = " + buttonRenderers.Length);
+        if (normalColors != null) TLog("normalColors length = " + normalColors.Length);
+        if (litColors != null) TLog("litColors length = " + litColors.Length);
+
         InitButtonVisuals();
 
-        // Max possible length = starting + (rounds - 1)
         int maxLen = startingSequenceLength + totalRounds - 1;
         sequence = new int[maxLen];
+
+        TLog("Sequence array created. maxLen = " + maxLen);
+
+        // QUICK TEST: force one color on for 1 sec to verify renderer/material works
+        SetButtonLit(0, true);
+        SendCustomEventDelayedSeconds(nameof(DebugTurnOffTestLight), 1f);
+    }
+
+    public void DebugTurnOffTestLight()
+    {
+        SetButtonLit(0, false);
+        TLog("Debug test light off");
     }
 
     private void InitButtonVisuals()
@@ -177,29 +206,48 @@ public class MemoryGameController : UdonSharpBehaviour
         }
     }
 
-    // Called by MemoryButton.cs
     public void PressColor(int colorIndex)
     {
-        if (!gameRunning) return;
-        if (!canPlayerInput) return;
-        if (isShowingSequence) return;
+        TLog("PressColor called with colorIndex=" + colorIndex);
 
-        // Optional mini flash on press
+        if (!gameRunning)
+        {
+            TLog("Press ignored: gameRunning=false");
+            return;
+        }
+
+        if (!canPlayerInput)
+        {
+            TLog("Press ignored: canPlayerInput=false");
+            return;
+        }
+
+        if (isShowingSequence)
+        {
+            TLog("Press ignored: isShowingSequence=true");
+            return;
+        }
+
         FlashPressedButton(colorIndex);
 
-        // Check input
+        TLog("Checking input. inputIndex=" + inputIndex +
+             " expected=" + sequence[inputIndex] +
+             " got=" + colorIndex);
+
         if (sequence[inputIndex] == colorIndex)
         {
             inputIndex++;
+            TLog("Correct input. New inputIndex=" + inputIndex + "/" + currentSequenceLength);
 
-            // Player completed current round
             if (inputIndex >= currentSequenceLength)
             {
+                TLog("Round completed. Calling OnRoundSuccess()");
                 OnRoundSuccess();
             }
         }
         else
         {
+            TLog("Wrong input. Calling OnGameFail()");
             OnGameFail();
         }
     }
@@ -291,5 +339,10 @@ public class MemoryGameController : UdonSharpBehaviour
         {
             r.material.color = normalColors[index];
         }
+    }
+
+    private void TLog(string msg)
+    {
+        Debug.Log("[Tablet] " + msg);
     }
 }
