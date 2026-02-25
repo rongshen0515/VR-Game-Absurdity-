@@ -3,8 +3,6 @@ using UnityEngine;
 using VRC.SDKBase;
 using VRC.Udon;
 
-// In the project the asset is named "Tablet" but you can rename the class and file as needed. Just make sure the class name matches the file name for UdonSharp to compile it correctly.
-
 public class Tablet : UdonSharpBehaviour
 {
     [Header("Game Settings")]
@@ -30,11 +28,31 @@ public class Tablet : UdonSharpBehaviour
     public AudioClip failClip;
     public AudioClip roundStartClip;
 
-    [Header("Tablet Glow (Round Success)")]
-    public Renderer tabletGlowRenderer;   // assign the tablet body renderer
-    public Color tabletNormalColor = Color.white;
-    public Color tabletGlowColor = Color.cyan;
-    public float roundSuccessGlowDuration = 0.4f;
+    [Header("Fail Light Blink")]
+    public Color failBlinkColor = Color.red;
+    public int failBlinkCount = 3;
+    public float failBlinkOnTime = 0.15f;
+    public float failBlinkOffTime = 0.12f;
+
+    // Internal fail blink state
+    private int failBlinkTogglesRemaining = 0;
+    private bool failBlinkState = false;
+
+    // Cache the light's original color so we can restore it
+    private Color cachedRoundLightColor = Color.white;
+    private bool hasCachedRoundLightColor = false;
+
+    [Header("Round Success Light")]
+    public Light roundSuccessLight;   // Assign in Inspector
+    public float roundSuccessLightDuration = 0.4f;
+
+    public int finalWinBlinkCount = 3;
+    public float finalWinBlinkOnTime = 0.18f;
+    public float finalWinBlinkOffTime = 0.12f;
+
+    // Internal final-win blink state
+    private int finalWinBlinkTogglesRemaining = 0;
+    private bool finalWinBlinkState = false;
 
     // Internal state
     private int[] sequence;
@@ -69,6 +87,17 @@ public class Tablet : UdonSharpBehaviour
         if (litColors != null) TLog("litColors length = " + litColors.Length);
 
         InitButtonVisuals();
+        if (roundSuccessLight != null)
+        {
+            roundSuccessLight.enabled = false;
+        }
+
+        if (roundSuccessLight != null)
+        {
+            roundSuccessLight.enabled = false;
+            cachedRoundLightColor = roundSuccessLight.color;
+            hasCachedRoundLightColor = true;
+        }
 
         int maxLen = startingSequenceLength + totalRounds - 1;
         sequence = new int[maxLen];
@@ -261,21 +290,14 @@ public class Tablet : UdonSharpBehaviour
             audioSource.PlayOneShot(successClip);
         }
 
-        // If final round finished
-        if (currentRound >= totalRounds)
+        // Turn on success light
+        if (roundSuccessLight != null)
         {
-            Debug.Log("[MemoryGame] Player won all rounds!");
-            gameRunning = false;
-            ResetAllLights();
-            return;
+            roundSuccessLight.enabled = true;
         }
 
-        // Advance round and add one new color
-        currentRound++;
-        AddOneColorToSequence();
-
-        // Replay full sequence (previous part maintained)
-        SendCustomEventDelayedSeconds(nameof(DelayedNextRoundPlayback), 0.75f);
+        // Wait, then turn it off + continue
+        SendCustomEventDelayedSeconds(nameof(FinishRoundSuccessTransition), roundSuccessLightDuration);
     }
 
     public void DelayedNextRoundPlayback()
@@ -293,8 +315,10 @@ public class Tablet : UdonSharpBehaviour
             audioSource.PlayOneShot(failClip);
         }
 
-        Debug.Log("[MemoryGame] Wrong input. Game over.");
         ResetAllLights();
+
+        // Start red blink fail effect
+        StartFailBlinkSequence();
     }
 
     private void FlashPressedButton(int colorIndex)
@@ -338,6 +362,138 @@ public class Tablet : UdonSharpBehaviour
         else
         {
             r.material.color = normalColors[index];
+        }
+    }
+
+    public void FinishRoundSuccessTransition()
+    {
+        // Turn off success light (from normal round-success glow)
+        if (roundSuccessLight != null)
+        {
+            roundSuccessLight.enabled = false;
+        }
+
+        // If final round finished, do final blink celebration
+        if (currentRound >= totalRounds)
+        {
+            StartFinalWinBlinkSequence();
+            return;
+        }
+
+        // Advance round and add one new color
+        currentRound++;
+        AddOneColorToSequence();
+
+        SendCustomEventDelayedSeconds(nameof(DelayedNextRoundPlayback), 0.2f);
+    }
+
+    public void StartFinalWinBlinkSequence()
+    {
+        TLog("Final win reached. Starting blink celebration.");
+
+        canPlayerInput = false;
+        gameRunning = false; // stop normal game loop while celebrating
+        ResetAllLights();
+
+        if (roundSuccessLight == null)
+        {
+            Debug.Log("[MemoryGame] Player won all rounds! (No success light assigned)");
+            return;
+        }
+
+        // 3 blinks = ON,OFF repeated 3 times = 6 toggles
+        finalWinBlinkTogglesRemaining = finalWinBlinkCount * 2;
+        finalWinBlinkState = false;
+        roundSuccessLight.enabled = false;
+
+        SendCustomEventDelayedSeconds(nameof(FinalWinBlinkStep), 0.01f);
+    }
+
+    public void FinalWinBlinkStep()
+    {
+        if (roundSuccessLight == null) return;
+
+        // Toggle light
+        finalWinBlinkState = !finalWinBlinkState;
+        roundSuccessLight.enabled = finalWinBlinkState;
+
+        finalWinBlinkTogglesRemaining--;
+
+        // Done blinking
+        if (finalWinBlinkTogglesRemaining <= 0)
+        {
+            roundSuccessLight.enabled = false;
+            Debug.Log("[MemoryGame] Player won all rounds!");
+            return;
+        }
+
+        // Schedule next toggle
+        if (finalWinBlinkState)
+        {
+            SendCustomEventDelayedSeconds(nameof(FinalWinBlinkStep), finalWinBlinkOnTime);
+        }
+        else
+        {
+            SendCustomEventDelayedSeconds(nameof(FinalWinBlinkStep), finalWinBlinkOffTime);
+        }
+    }
+
+    public void StartFailBlinkSequence()
+    {
+        TLog("Game failed. Starting RED blink.");
+
+        if (roundSuccessLight == null)
+        {
+            Debug.Log("[MemoryGame] Wrong input. Game over. (No fail light assigned)");
+            return;
+        }
+
+        // Set fail color
+        if (hasCachedRoundLightColor)
+        {
+            // cachedRoundLightColor is stored already
+        }
+        roundSuccessLight.color = failBlinkColor;
+
+        // 3 blinks = ON/OFF x3 = 6 toggles
+        failBlinkTogglesRemaining = failBlinkCount * 2;
+        failBlinkState = false;
+        roundSuccessLight.enabled = false;
+
+        SendCustomEventDelayedSeconds(nameof(FailBlinkStep), 0.01f);
+    }
+
+    public void FailBlinkStep()
+    {
+        if (roundSuccessLight == null) return;
+
+        failBlinkState = !failBlinkState;
+        roundSuccessLight.enabled = failBlinkState;
+
+        failBlinkTogglesRemaining--;
+
+        if (failBlinkTogglesRemaining <= 0)
+        {
+            // End of fail blink
+            roundSuccessLight.enabled = false;
+
+            // Restore original light color so success/final-win still look correct later
+            if (hasCachedRoundLightColor)
+            {
+                roundSuccessLight.color = cachedRoundLightColor;
+            }
+
+            Debug.Log("[MemoryGame] Wrong input. Game over.");
+            return;
+        }
+
+        if (failBlinkState)
+        {
+            SendCustomEventDelayedSeconds(nameof(FailBlinkStep), failBlinkOnTime);
+        }
+        else
+        {
+            SendCustomEventDelayedSeconds(nameof(FailBlinkStep), failBlinkOffTime);
         }
     }
 
