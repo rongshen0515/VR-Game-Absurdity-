@@ -1,24 +1,43 @@
 using UdonSharp;
 using UnityEngine;
 using VRC.SDKBase;
-// Attach this to each wire,  
-// Each wire has a unique ID (0-3) that corresponds to the correct slot. 
-// The manager checks if the wires are placed correctly.
-public class Wire : UdonSharpBehaviour
-{
-    public int wireID; // 0–3
-    [HideInInspector] public bool placedCorrectly = false;
 
-    private Vector3 startPosition;
+public class WireEnd : UdonSharpBehaviour
+{
+    public int wireID;
+    public Transform startPoint;
+    public LineRenderer line;
+
+    private Vector3 startWorldPos;
+    public bool locked; // NEW
 
     void Start()
     {
-        startPosition = transform.position;
+        // Store WORLD position, not local
+        startWorldPos = transform.position;
+    }
+
+    void Update()
+    {
+        if (line != null && startPoint != null)
+        {
+            line.SetPosition(0, startPoint.position);
+            line.SetPosition(1, transform.position);
+        }
     }
 
     public void ResetWire()
     {
-        transform.position = startPosition;
-        placedCorrectly = false;
+        // DO NOTHING if this wire is already correctly placed
+        if (locked) return;
+
+        transform.position = startWorldPos;
+
+        Rigidbody rb = GetComponent<Rigidbody>();
+        if (rb != null)
+        {
+            rb.velocity = Vector3.zero;
+            rb.angularVelocity = Vector3.zero;
+        }
     }
 }
