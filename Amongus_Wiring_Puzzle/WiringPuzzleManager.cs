@@ -5,24 +5,44 @@ public class WiringPuzzleManager : UdonSharpBehaviour
 {
     public WireSlot[] slots;
     public Transform safe;
-    public bool solved = false;
+
+    private bool solved;
+    private bool isRotating;
+    private Quaternion targetRotation;
+    public float rotationSpeed = 90f;
 
     public void CheckPuzzle()
     {
         if (solved) return;
 
-        for (int i = 0; i < slots.Length; i++)
+        foreach (WireSlot slot in slots)
         {
-            if (!slots[i].isCorrect)
+            // 🔑 CHANGE IS HERE
+            if (!slot.locked)
                 return;
         }
 
         solved = true;
-        RotateSafe();
+
+        // Rotate safe 180 degrees
+        targetRotation = safe.rotation * Quaternion.Euler(0f, 180f, 0f);
+        isRotating = true;
     }
 
-    private void RotateSafe()
+    void Update()
     {
-        safe.Rotate(0f, 180f, 0f);
+        if (!isRotating) return;
+
+        safe.rotation = Quaternion.RotateTowards(
+            safe.rotation,
+            targetRotation,
+            rotationSpeed * Time.deltaTime
+        );
+
+        if (Quaternion.Angle(safe.rotation, targetRotation) < 0.1f)
+        {
+            safe.rotation = targetRotation;
+            isRotating = false;
+        }
     }
 }
